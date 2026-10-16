@@ -16,7 +16,10 @@ final class AppModel {
 
     /// Estado de pausa, persistido entre reinicios.
     private(set) var pause: PauseState {
-        didSet { Preferences.pause = pause }
+        didSet {
+            Preferences.pause = pause
+            panelController.model.isCapturePaused = isPaused
+        }
     }
 
     var isPaused: Bool { pause.isPaused(at: .now) }
@@ -29,7 +32,8 @@ final class AppModel {
     @ObservationIgnored private var excludedBundleIDs: Set<String> = []
     @ObservationIgnored private var backgroundTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var pauseExpiryTask: Task<Void, Never>?
-    @ObservationIgnored private let onboarding = OnboardingWindowController()
+    @ObservationIgnored private let onboarding = HostedWindowController(title: "Bienvenida")
+    @ObservationIgnored private let settingsWindow = HostedWindowController(title: "Configuración de Baúl")
     @ObservationIgnored private let logger = Logger(subsystem: "dev.tonis.baul", category: "app")
 
     init() throws {
@@ -47,6 +51,12 @@ final class AppModel {
         clipboard = ClipboardController(store: store, images: images, panel: panelController)
         panelModel.actions = clipboard
         pause = Preferences.pause
+        panelModel.onOpenSettings = { [weak self] in self?.showSettings() }
+        panelModel.onShowWelcome = { [weak self] in self?.showOnboarding() }
+        panelModel.onQuit = { NSApp.terminate(nil) }
+        panelModel.onPause = { [weak self] duration in self?.pause(for: duration) }
+        panelModel.onResume = { [weak self] in self?.resume() }
+        panelModel.isCapturePaused = pause.isPaused(at: .now)
     }
 
     func start() {
@@ -146,9 +156,14 @@ final class AppModel {
     // MARK: - Ventanas
 
     func showOnboarding() {
-        onboarding.show {
+        onboarding.show(OnboardingView { [weak self] in
             Preferences.hasCompletedOnboarding = true
-        }
+            self?.onboarding.close()
+        })
+    }
+
+    func showSettings() {
+        settingsWindow.show(SettingsView(model: settingsModel))
     }
 
     func togglePanel() {
@@ -176,18 +191,20 @@ enum Preferences {
     }
 }
 
-/// Ventana de bienvenida (AppKit, porque la app no tiene ventana principal).
-final class OnboardingWindowController {
+/// Ventana con contenido SwiftUI, creada a mano porque la app no tiene ventana principal
+/// y las escenas de SwiftUI no se abren de forma fiable desde un panel o un atajo global.
+final class HostedWindowController {
+    private let title: String
     private var window: NSWindow?
 
-    func show(onFinish: @escaping () -> Void) {
+    init(title: String) {
+        self.title = title
+    }
+
+    func show(_ content: some View) {
         if window == nil {
-            let hosting = NSHostingController(rootView: OnboardingView { [weak self] in
-                onFinish()
-                self?.window?.close()
-            })
-            let window = NSWindow(contentViewController: hosting)
-            window.title = "Bienvenida"
+            let window = NSWindow(contentViewController: NSHostingController(rootView: content))
+            window.title = title
             window.styleMask = [.titled, .closable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -196,5 +213,9 @@ final class OnboardingWindowController {
         }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    func close() {
+        window?.close()
     }
 }

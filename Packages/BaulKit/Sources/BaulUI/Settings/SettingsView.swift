@@ -143,6 +143,9 @@ private struct PrivacySettingsView: View {
                     HStack {
                         if let icon = ImageCache.shared.appIcon(forBundleID: app.bundleID) {
                             Image(nsImage: icon).resizable().frame(width: 20, height: 20)
+                        } else {
+                            // App no instalada: mismo hueco para que los nombres queden alineados.
+                            Image(systemName: "app.dashed").frame(width: 20, height: 20).foregroundStyle(.tertiary)
                         }
                         Text(app.name)
                         Spacer()

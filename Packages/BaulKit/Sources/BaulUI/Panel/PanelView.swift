@@ -72,6 +72,7 @@ public struct PanelView: View {
             BoardTabsView(model: model)
                 .frame(maxWidth: .infinity)
             filterMenu
+            appMenu
         }
         .frame(height: 30)
     }
@@ -114,6 +115,39 @@ public struct PanelView: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Filtrar por tipo")
+    }
+
+    private var appMenu: some View {
+        Menu {
+            Button("Nuevo tablero…") { model.beginCreatingBoard() }
+            Divider()
+            if model.isCapturePaused {
+                Button("Reanudar Baúl") { model.onResume() }
+            } else {
+                Menu("Pausar Baúl") {
+                    Button("15 minutos") { model.onPause(.seconds(15 * 60)) }
+                    Button("1 hora") { model.onPause(.seconds(3_600)) }
+                    Button("Hasta que lo reanude") { model.onPause(nil) }
+                }
+            }
+            Divider()
+            Button("Configuración…") {
+                model.actions?.closePanel()
+                model.onOpenSettings()
+            }
+            Button("Bienvenida y atajos…") {
+                model.actions?.closePanel()
+                model.onShowWelcome()
+            }
+            Divider()
+            Button("Salir de Baúl") { model.onQuit() }
+        } label: {
+            Image(systemName: model.isCapturePaused ? "pause.circle.fill" : "ellipsis.circle")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Más opciones")
     }
 
     // MARK: - Tarjetas

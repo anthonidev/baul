@@ -70,6 +70,16 @@ public final class PanelViewModel {
     public private(set) var focusRequest = UUID()
 
     public weak var actions: (any PanelActions)?
+    /// Acciones de la app accesibles desde el menú ⋯ del panel (por si el ícono de la
+    /// barra de menú queda oculto detrás del notch).
+    public var onOpenSettings: () -> Void = {}
+    public var onShowWelcome: () -> Void = {}
+    public var onQuit: () -> Void = {}
+    /// Pausa de la captura: `nil` = hasta reanudar.
+    public var onPause: (Duration?) -> Void = { _ in }
+    public var onResume: () -> Void = {}
+    /// Lo actualiza la app cuando cambia la pausa.
+    public var isCapturePaused = false
 
     private let store: any LibraryStore
     private let images: any ImageStore

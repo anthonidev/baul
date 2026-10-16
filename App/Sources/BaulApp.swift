@@ -15,12 +15,6 @@ struct BaulApp: App {
             Image(systemName: appDelegate.model?.isPaused == true ? "pause.circle" : "list.clipboard")
                 .accessibilityLabel("Baúl")
         }
-
-        Settings {
-            if let model = appDelegate.model {
-                SettingsView(model: model.settingsModel)
-            }
-        }
     }
 }
 
@@ -47,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 /// Menú de la barra superior.
 struct MenuBarContent: View {
     let model: AppModel
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Button("Abrir Baúl") { model.togglePanel() }
@@ -62,10 +55,7 @@ struct MenuBarContent: View {
             }
         }
         Divider()
-        Button("Configuración…") {
-            NSApp.activate()
-            openSettings()
-        }
+        Button("Configuración…") { model.showSettings() }
         .keyboardShortcut(",")
         Button("Bienvenida y permisos…") { model.showOnboarding() }
         Divider()
