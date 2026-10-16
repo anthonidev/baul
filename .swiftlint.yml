@@ -1,0 +1,34 @@
+included:
+  - App/Sources
+  - Packages/BaulKit/Sources
+  - Packages/BaulKit/Tests
+excluded:
+  - Packages/BaulKit/.build
+  - build
+  - PoC
+disabled_rules:
+  - todo
+  - identifier_name        # nombres cortos como `db`, `t` son idiomáticos con GRDB
+  - trailing_comma         # se prefieren comas finales en listas multilínea
+  - opening_brace          # choca con las condiciones multilínea de guard/if
+opt_in_rules:
+  - empty_count
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - modifier_order
+  - redundant_nil_coalescing
+  - sorted_first_last
+analyzer_rules:
+  - unused_import
+type_name:
+  excluded: [ID]
+line_length:
+  warning: 140
+  error: 200
+type_body_length:
+  warning: 400
+file_length:
+  warning: 600
+function_body_length:
+  warning: 60
