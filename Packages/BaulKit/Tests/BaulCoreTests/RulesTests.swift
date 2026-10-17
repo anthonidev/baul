@@ -27,6 +27,33 @@ import Testing
     }
 }
 
+@Suite struct LinkTitlePolicyTests {
+    @Test(arguments: [
+        "https://github.com/groue/GRDB.swift",
+        "https://docs.swift.org/swift-book",
+        "http://8.8.8.8/",
+    ])
+    func `fetches titles for public sites`(link: String) throws {
+        #expect(LinkDetector.shouldFetchTitle(for: try #require(URL(string: link))))
+    }
+
+    @Test(arguments: [
+        "http://localhost:3000/api/borrar?id=5",
+        "http://127.0.0.1:8080",
+        "http://192.168.1.10/admin",
+        "http://10.0.0.5",
+        "http://172.20.1.1",
+        "http://169.254.1.1",
+        "http://mi-mac.local:5000",
+        "http://app.localhost",
+        "http://[::1]:3000",
+        "http://intranet/",
+    ])
+    func `never fetches local or private addresses`(link: String) throws {
+        #expect(!LinkDetector.shouldFetchTitle(for: try #require(URL(string: link))))
+    }
+}
+
 @Suite struct ContentFingerprintTests {
     @Test func `same text gives same fingerprint`() {
         #expect(ContentFingerprint.of(.text("a")) == ContentFingerprint.of(.text("a")))

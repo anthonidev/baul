@@ -66,7 +66,8 @@ override var canBecomeKey: Bool { true }   // para recibir teclado
 - `RegisterEventHotKey` (Carbon) devuelve `noErr` **aunque Paste ya tenga ⌘⇧V registrado**: macOS no da exclusividad. Con los dos corriendo, **ambas apps reciben el atajo**: se abren los dos paneles y Paste puede quedarse con el teclado.
 - ➡️ **Para usar Baúl hay que desactivar el atajo en Paste o cerrar Paste.** Esto se menciona también en la pantalla de primer uso.
 - No necesita ningún permiso.
-- En el PoC el atajo se puede cambiar a ⌃⌥⌘V para convivir con Paste: `defaults write dev.tonis.baul.poc altHotKey -bool YES` (está activado ahora mismo).
+- En el PoC el atajo se puede cambiar a ⌃⌥⌘V para convivir con Paste: `defaults write dev.tonis.baul.poc altHotKey -bool YES`.
+- **Actualización:** Paste ya se desinstaló, así que Baúl usa ⌘⇧V sin conflicto.
 
 ### 5. Firma
 
@@ -81,3 +82,64 @@ override var canBecomeKey: Bool { true }   // para recibir teclado
 - `xcodegen` 2.46 y `swiftlint` 0.65 vía Homebrew.
 - `swift-format` ya viene con Xcode (`xcrun swift-format`).
 - El `.xcodeproj` se genera con XcodeGen a partir de `project.yml` y no se versiona.
+
+---
+
+## Fases 1 a 7: la app (16-oct-2026)
+
+### Estado por fase
+
+| Fase | Estado | Verificado |
+|---|---|---|
+| 1. Base del proyecto | ✅ | XcodeGen + paquete `BaulKit` (4 módulos), SwiftLint sin advertencias, `make` para todo |
+| 2. Captura del historial | ✅ | Texto, RTF/HTML, links (con título), imágenes + miniatura; sin duplicados; limpieza de 5 días; contraseñas ocultas no se guardan |
+| 3. Panel | ✅ (falta pegar directo, prueba manual) | Panel inferior, tarjetas, ← →, Esc, clic fuera, ⌘C. **Enter/⇧Enter/⌘1…9 necesitan el permiso de Accesibilidad** |
+| 4. Tableros | ✅ (falta arrastrar, prueba manual) | Crear, renombrar/color, mover, eliminar con confirmación, *Guardar en…*, editar título/texto, ⌘← ⌘→ |
+| 5. Búsqueda | ✅ | Escribir para buscar, fragmentos sin tildes, "En todo", filtros por tipo |
+| 6. Privacidad y configuración | ✅ | Apps excluidas, pausa (15 min / 1 h / indefinida), atajo, inicio al encender, espacio ocupado, borrar historial, bienvenida |
+| 7. Pulido | ✅ parcial | Ícono, rendimiento medido, accesibilidad básica (etiquetas en tarjetas). Animaciones: las del sistema |
+
+Pruebas automáticas: **66** (Swift Testing): núcleo 21, persistencia 33, modelo del panel 12.
+
+### Decisiones de diseño
+
+- **Un elemento, varias vistas.** El historial (`clip`) y lo guardado (`boardEntry`) son tablas distintas. Una entrada apunta a un elemento y puede sobrescribir título y texto sin tocar el original. La base de datos impide borrar un elemento que está en un tablero (`ON DELETE RESTRICT`).
+- **"Borrar del historial" no borra lo guardado.** Si un elemento está en un tablero, se marca `inHistory = 0` y sigue vivo en el tablero. Si lo vuelves a copiar, reaparece en el historial. Cuando se quita del último tablero y ya no está en el historial, se borra junto con su imagen.
+- **Búsqueda con FTS5 + trigramas** (`tokenize='trigram remove_diacritics 1'`): "stag" encuentra "Staging" y "cancion" encuentra "canción". Las palabras de menos de 3 letras usan `LIKE`, porque el índice de trigramas no las cubre.
+- **Formato al pegar.** Se guardan RTF y HTML junto al texto. Enter pega con formato y ⇧Enter solo el texto. Si editas el texto en un tablero, se descarta el formato original.
+- **Pegar desde Baúl sube el elemento al principio**, como si se hubiera copiado de nuevo. El cambio que Baúl hace en el portapapeles se ignora para no duplicarlo.
+- **Títulos de links:** nunca para `localhost`, `.local`, IPs privadas ni nombres sin dominio. Un GET a `localhost:3000/api/...` podría tener efectos en un servidor de desarrollo.
+- **Debug y Release usan carpetas distintas** (`~/Library/Application Support/Baul-Debug` y `.../Baul`). En Debug, la base se recrea si cambia una migración. Así, desarrollar nunca toca los datos de la app instalada.
+- **Copiar archivos en Finder se ignora** por ahora; si no, guardaría solo el nombre del archivo. Está en "Ideas para después".
+
+### Bugs encontrados al probar la app real
+
+1. **`URL.path()` codifica los espacios** (`Application%20Support`) y SQLite no pudo abrir la base. Se usa `path(percentEncoded: false)` en todo el proyecto y hay una prueba con una carpeta que contiene espacios.
+2. **Un ⌫ de más borraba una tarjeta.** Al enfocar el buscador con ⌘F, macOS selecciona todo el texto: el primer ⌫ vaciaba la búsqueda y el segundo borraba la tarjeta seleccionada. Ahora borrar una tarjeta pide **⌘⌫** (o ⌦), y ⌫ solo edita la búsqueda.
+3. **El ícono de la barra de menú puede quedar oculto detrás del notch** si la barra está llena. macOS lo coloca fuera de la pantalla (lo confirmé con la API de Accesibilidad: posición `(-1, 970)`). Por eso todo lo esencial (pausar, configuración, bienvenida, salir) también está en el menú **⋯** del panel. Con Paste desinstalado, el ícono ya se ve.
+4. **`LibraryItem` choca con un tipo de SwiftUI** del mismo nombre: se renombró a `ClipItem`.
+5. **Las escenas `Settings` de SwiftUI no se abren de forma fiable** desde una app sin ventana principal. Configuración y Bienvenida son ventanas AppKit con contenido SwiftUI (`HostedWindowController`).
+
+### Rendimiento
+
+Con 5.000 elementos en el historial (prueba `PerformanceTests`):
+
+| Consulta | Tiempo |
+|---|---|
+| Listar los 300 más recientes | ~1,8 ms |
+| Buscar "token-42 staging" | ~1,4 ms |
+| Buscar "42" (corta, usa LIKE) | ~1,8 ms |
+
+Un cuadro de pantalla dura ~16 ms, así que hay mucho margen. El panel muestra hasta 300 tarjetas en un `LazyHStack`.
+
+### Cómo se probó
+
+Además de las pruebas automáticas, la app se ejecutó y se manejó con eventos de teclado y mouse simulados (`CGEvent`), con capturas de pantalla para verificar. El arrastre simulado no es fiable (macOS abría el menú contextual), así que queda como prueba manual.
+
+### Pruebas manuales pendientes
+
+1. Dar el permiso de **Accesibilidad** (bienvenida → *Dar permiso…*) y probar **Enter, ⇧Enter, ⌘1…⌘9 y doble clic** en Terminal, Chrome, VS Code y Slack.
+2. **Arrastrar** una tarjeta a la pestaña de un tablero.
+3. Abrir el panel sobre una app en **pantalla completa** y con **dos monitores**.
+4. Activar **Iniciar al encender la Mac** y reiniciar. Debe hacerse con la app de `/Applications` (`make install`).
+5. Copiar una contraseña desde tu gestor real y confirmar que no aparece.

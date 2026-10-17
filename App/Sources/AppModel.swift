@@ -39,7 +39,7 @@ final class AppModel {
     init() throws {
         let support = try FileManager.default
             .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-            .appending(path: "Baul", directoryHint: .isDirectory)
+            .appending(path: Self.dataFolderName, directoryHint: .isDirectory)
         let database = try AppDatabase.onDisk(at: support.appending(path: "baul.sqlite"))
         store = SQLiteLibraryStore(database: database)
         images = try FileImageStore(directory: support.appending(path: "media", directoryHint: .isDirectory))
@@ -58,6 +58,14 @@ final class AppModel {
         panelModel.onResume = { [weak self] in self?.resume() }
         panelModel.isCapturePaused = pause.isPaused(at: .now)
     }
+
+    /// En Debug la base se borra si cambia una migración (ver `AppDatabase.migrator`):
+    /// usa otra carpeta para no tocar nunca los datos de la app instalada.
+    #if DEBUG
+    static let dataFolderName = "Baul-Debug"
+    #else
+    static let dataFolderName = "Baul"
+    #endif
 
     func start() {
         let monitor = PasteboardMonitor { [weak self] item in self?.capture(item) }
@@ -105,7 +113,8 @@ final class AppModel {
         Task {
             do {
                 let result = try await recorder.record(item, policy: policy)
-                if case .recorded(.inserted(let clip)) = result, case .link(let url, nil) = clip.content {
+                if case .recorded(.inserted(let clip)) = result, case .link(let url, nil) = clip.content,
+                   LinkDetector.shouldFetchTitle(for: url) {
                     await fetchTitle(for: clip.id, url: url)
                 }
             } catch {

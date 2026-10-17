@@ -33,5 +33,6 @@ Gestor de portapapeles personal para macOS 27 (reemplazo de Paste). Qué hace: `
 
 - `NSPanel.isFloatingPanel = true` reinicia el `level`: asignarlo antes.
 - El campo de búsqueda se come flechas/Enter/Esc: el teclado del panel se maneja con un monitor local en `PanelController`.
-- Si Paste está abierto, ⌘⇧V abre los dos paneles.
+- Si Paste está abierto, ⌘⇧V abre los dos paneles (Paste ya está desinstalado).
+- Debug guarda en `~/Library/Application Support/Baul-Debug` y Release en `.../Baul`. En Debug la base se recrea si cambia una migración: las migraciones ya publicadas nunca se editan, se agrega una nueva.
 - Firmar siempre con el certificado Apple Development (equipo RS79YL6DLM) para que no se pierda el permiso de Accesibilidad.

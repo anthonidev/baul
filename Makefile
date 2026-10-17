@@ -14,7 +14,7 @@ build: project  ## Compila en Debug
 		-derivedDataPath $(DERIVED) -allowProvisioningUpdates build -quiet
 
 run: build  ## Compila y abre la app (cierra la instancia anterior)
-	-pkill -x Baul
+	-pkill -x Baul && sleep 1
 	open $(APP_DEBUG)
 
 test:  ## Pruebas del paquete BaulKit
@@ -29,7 +29,7 @@ format:  ## Formatea con swift-format (incluido en Xcode)
 install: project  ## Compila en Release e instala en /Applications
 	xcodebuild -project Baul.xcodeproj -scheme Baul -configuration Release \
 		-derivedDataPath $(DERIVED) -allowProvisioningUpdates build -quiet
-	-pkill -x Baul
+	-pkill -x Baul && sleep 1
 	rm -rf /Applications/Baul.app
 	cp -R $(APP_RELEASE) /Applications/Baul.app
 	open /Applications/Baul.app

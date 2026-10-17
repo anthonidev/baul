@@ -2,6 +2,8 @@
 
 Referencia funcional: [`IDEA.md`](IDEA.md). Este documento define **cómo** se construye.
 
+> **Estado (16-oct-2026):** fases 0 a 7 implementadas. Quedan pruebas manuales (pegar directo con Accesibilidad, arrastrar a tableros, pantalla completa y dos monitores). Detalle en [`docs/HALLAZGOS.md`](docs/HALLAZGOS.md).
+
 ## Decisiones
 
 | Tema | Decisión | Por qué |
@@ -32,7 +34,7 @@ Packages/BaulKit (paquete Swift local)
 └─ BaulUI                  → vistas SwiftUI y modelos de vista @Observable
 ```
 
-- Dependencias en una sola dirección: `BaulUI → BaulCore ← BaulPersistence / BaulSystem`. `BaulCore` no importa AppKit ni GRDB.
+- Dependencias en una sola dirección: `BaulUI → BaulSystem → BaulCore ← BaulPersistence`. `BaulCore` no importa AppKit ni GRDB. (Al implementar, `BaulUI` pasó a depender de `BaulSystem` para los permisos y el atajo; el pegado sigue detrás del protocolo `PanelActions`.)
 - Todo lo que toca el sistema va detrás de un protocolo (`PasteboardReading`, `PastePerforming`, `ClipRepository`, `Clock`…) para poder probarlo con versiones falsas.
 - UI en `@MainActor`; acceso a base de datos a través de un `actor`; modelos de dominio `struct` + `Sendable`.
 
@@ -152,6 +154,6 @@ Una app desechable en `PoC/` (no se reutiliza su código):
 ## Ideas para después (fuera de este plan)
 
 - Pila de pegado (copiar varias cosas y pegarlas en orden).
-- Guardar archivos y colores.
+- Guardar archivos (hoy, copiar archivos en Finder se ignora) y colores.
 - OCR en imágenes para buscarlas.
 - Integración con Destello.
