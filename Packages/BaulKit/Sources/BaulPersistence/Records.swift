@@ -23,6 +23,7 @@ struct ClipRecord: Codable, FetchableRecord, MutablePersistableRecord, TableReco
     var createdAt: Date
     var lastCopiedAt: Date
     var inHistory: Bool
+    var title: String?
 
     enum Columns {
         static let id = Column(CodingKeys.id)
@@ -32,6 +33,7 @@ struct ClipRecord: Codable, FetchableRecord, MutablePersistableRecord, TableReco
         static let contentHash = Column(CodingKeys.contentHash)
         static let lastCopiedAt = Column(CodingKeys.lastCopiedAt)
         static let inHistory = Column(CodingKeys.inHistory)
+        static let title = Column(CodingKeys.title)
     }
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
@@ -65,13 +67,15 @@ extension ClipRecord {
         }
     }
 
-    func toDomain() throws -> Clip {
+    func toDomain(boardIDs: [BoardID] = []) throws -> Clip {
         guard let id else { throw PersistenceError.missingID }
         return Clip(
             id: ClipID(rawValue: id),
             content: try content(),
             contentHash: contentHash,
             source: sourceBundleID.map { SourceApp(bundleID: $0, name: sourceAppName ?? $0) },
+            title: title,
+            boardIDs: boardIDs,
             byteSize: byteSize,
             createdAt: createdAt,
             lastCopiedAt: lastCopiedAt
@@ -122,6 +126,7 @@ struct BoardEntryRecord: Codable, FetchableRecord, MutablePersistableRecord, Tab
     var id: Int64?
     var boardId: Int64
     var clipId: Int64
+    /// Sin uso desde la migración v2 (el título vive en `clip.title`).
     var customTitle: String?
     var customText: String?
     var sortOrder: Int
@@ -144,13 +149,12 @@ struct BoardEntryWithClip: Decodable, FetchableRecord {
     var boardEntry: BoardEntryRecord
     var clip: ClipRecord
 
-    func toDomain() throws -> BoardEntry {
+    func toDomain(boardIDs: [BoardID]) throws -> BoardEntry {
         guard let id = boardEntry.id else { throw PersistenceError.missingID }
         return BoardEntry(
             id: BoardEntryID(rawValue: id),
             boardID: BoardID(rawValue: boardEntry.boardId),
-            clip: try clip.toDomain(),
-            customTitle: boardEntry.customTitle,
+            clip: try clip.toDomain(boardIDs: boardIDs),
             customText: boardEntry.customText,
             sortOrder: boardEntry.sortOrder,
             addedAt: boardEntry.addedAt

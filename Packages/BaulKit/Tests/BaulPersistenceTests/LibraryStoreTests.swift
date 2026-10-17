@@ -192,21 +192,53 @@ import Testing
         let board = try await store.createBoard(name: "env", color: .orange)
         let entryID = try await store.save(clip.id, to: board.id, at: base)
 
-        try await store.updateEntry(entryID, title: "Token de staging", text: "sk-editado")
+        try await store.updateEntry(entryID, text: "sk-editado")
 
         let entry = try #require(try await store.items(matching: LibraryQuery(scope: .board(board.id))).first)
-        #expect(entry.title == "Token de staging")
         #expect(entry.content == .text("sk-editado"))
         #expect(try await historyTexts() == ["sk-original"])
     }
 
     @Test func `blank title and text are stored as nil`() async throws {
         let board = try await store.createBoard(name: "env", color: .orange)
-        let entryID = try await store.save(try await copy("x").id, to: board.id, at: base)
-        try await store.updateEntry(entryID, title: "  ", text: "")
+        let clip = try await copy("x")
+        let entryID = try await store.save(clip.id, to: board.id, at: base)
+        try await store.setTitle("  ", for: clip.id)
+        try await store.updateEntry(entryID, text: "")
         let entry = try #require(try await store.items(matching: LibraryQuery(scope: .board(board.id))).first)
         #expect(entry.title == nil)
         #expect(entry.content == .text("x"))
+    }
+
+    @Test func `a title shows in history and in every board`() async throws {
+        let clip = try await copy("20601000939")
+        let rxh = try await store.createBoard(name: "rxh", color: .red)
+        let env = try await store.createBoard(name: "env", color: .orange)
+        try await store.save(clip.id, to: rxh.id, at: base)
+        try await store.save(clip.id, to: env.id, at: base)
+
+        try await store.setTitle("  RUC de la empresa ", for: clip.id)
+
+        let inHistory = try #require(try await store.items(matching: LibraryQuery()).first)
+        let inBoard = try #require(try await store.items(matching: LibraryQuery(scope: .board(env.id))).first)
+        #expect(inHistory.title == "RUC de la empresa")
+        #expect(inBoard.title == "RUC de la empresa")
+    }
+
+    @Test func `history items know which boards they are saved in`() async throws {
+        let saved = try await copy("guardado", minutesAgo: 1)
+        try await copy("suelto")
+        let rxh = try await store.createBoard(name: "rxh", color: .red)
+        let env = try await store.createBoard(name: "env", color: .orange)
+        try await store.save(saved.id, to: env.id, at: base)
+        try await store.save(saved.id, to: rxh.id, at: base)
+
+        let items = try await store.items(matching: LibraryQuery())
+        #expect(items.map(\.clip.boardIDs) == [[], [rxh.id, env.id]])
+
+        try await store.reorderBoards([env.id, rxh.id])
+        let reordered = try await store.items(matching: LibraryQuery())
+        #expect(reordered[1].clip.boardIDs == [env.id, rxh.id])
     }
 
     @Test func `deleting a board removes clips that only lived there`() async throws {
@@ -276,14 +308,25 @@ import Testing
         #expect(try await historyTexts(kinds: [.text, .link]).count == 2)
     }
 
-    @Test func `board search includes the custom title`() async throws {
+    @Test func `search finds the title in boards and history`() async throws {
         let board = try await store.createBoard(name: "env", color: .orange)
-        let entryID = try await store.save(try await copy("sk-123").id, to: board.id, at: base)
-        try await store.updateEntry(entryID, title: "Token de staging", text: nil)
+        let clip = try await copy("sk-123")
+        try await store.save(clip.id, to: board.id, at: base)
+        try await store.setTitle("Token de staging", for: clip.id)
         try await store.save(try await copy("otro").id, to: board.id, at: base)
 
-        let found = try await store.items(matching: LibraryQuery(scope: .board(board.id), text: "staging"))
-        #expect(found.map(\.content) == [.text("sk-123")])
+        let inBoard = try await store.items(matching: LibraryQuery(scope: .board(board.id), text: "staging"))
+        #expect(inBoard.map(\.content) == [.text("sk-123")])
+        #expect(try await historyTexts("stag") == ["sk-123"])
+        #expect(try await historyTexts("To") == ["sk-123"])
+    }
+
+    @Test func `search finds edited text in a board`() async throws {
+        let board = try await store.createBoard(name: "env", color: .orange)
+        let entryID = try await store.save(try await copy("viejo").id, to: board.id, at: base)
+        try await store.updateEntry(entryID, text: "texto editado")
+        let found = try await store.items(matching: LibraryQuery(scope: .board(board.id), text: "editado"))
+        #expect(found.count == 1)
     }
 
     @Test func `everything scope merges boards and history without duplicates`() async throws {

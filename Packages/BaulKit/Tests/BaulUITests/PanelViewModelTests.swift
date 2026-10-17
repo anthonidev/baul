@@ -172,13 +172,41 @@ final class NullImageStore: ImageStore {
         model.start()
         model.tab = .board(board.id)
         try await waitUntil { model.items.count == 1 }
-        let entry = try #require(model.items.first?.entry)
+        let item = try #require(model.items.first)
 
-        model.beginEditing(entry)
+        model.beginEditing(item)
         model.commitEdit(title: "Mi título", text: "original")
 
         try await waitUntil { model.items.first?.title == "Mi título" }
         #expect(model.items.first?.entry?.customText == nil)
+    }
+
+    @Test func `history items can get a title too`() async throws {
+        try await copy("20601000939")
+        model.start()
+        try await waitUntil { model.items.count == 1 }
+
+        model.beginEditing(try #require(model.items.first))
+        model.commitEdit(title: "RUC", text: nil)
+
+        try await waitUntil { model.items.first?.title == "RUC" }
+    }
+
+    @Test func `cards in a board tab use that board's color first`() async throws {
+        try await copy("dato")
+        let rxh = try await store.createBoard(name: "rxh", color: .red)
+        let env = try await store.createBoard(name: "env", color: .orange)
+        let clip = try #require(try await store.items(matching: LibraryQuery()).first).clip
+        try await store.save(clip.id, to: rxh.id, at: .now)
+        try await store.save(clip.id, to: env.id, at: .now)
+        model.start()
+        try await waitUntil { model.boards.count == 2 && model.items.first?.clip.boardIDs.count == 2 }
+
+        #expect(model.boards(for: try #require(model.items.first)).map(\.name) == ["rxh", "env"])
+
+        model.tab = .board(env.id)
+        try await waitUntil { model.items.first?.entry?.boardID == env.id }
+        #expect(model.boards(for: try #require(model.items.first)).map(\.name) == ["env", "rxh"])
     }
 
     @Test func `opening the panel resets search and tab`() async throws {

@@ -69,6 +69,10 @@ public struct Clip: Identifiable, Hashable, Sendable {
     /// Huella del contenido para no duplicar. Ver `ContentFingerprint`.
     public let contentHash: String
     public let source: SourceApp?
+    /// Título que le pone el usuario (p. ej. "Token de staging"); `nil` = se muestra el tipo.
+    public var title: String?
+    /// Tableros donde está guardado, en el orden de los tableros. Vacío = solo historial.
+    public var boardIDs: [BoardID]
     /// Tamaño del contenido original en bytes.
     public let byteSize: Int
     public let createdAt: Date
@@ -80,6 +84,8 @@ public struct Clip: Identifiable, Hashable, Sendable {
         content: ClipContent,
         contentHash: String,
         source: SourceApp?,
+        title: String? = nil,
+        boardIDs: [BoardID] = [],
         byteSize: Int,
         createdAt: Date,
         lastCopiedAt: Date
@@ -88,6 +94,8 @@ public struct Clip: Identifiable, Hashable, Sendable {
         self.content = content
         self.contentHash = contentHash
         self.source = source
+        self.title = title
+        self.boardIDs = boardIDs
         self.byteSize = byteSize
         self.createdAt = createdAt
         self.lastCopiedAt = lastCopiedAt

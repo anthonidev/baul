@@ -61,37 +61,39 @@ struct BoardEditorView: View {
     }
 }
 
-/// Editar el título y el texto de un elemento guardado en un tablero.
-struct EntryEditorView: View {
-    let entry: BoardEntry
+/// Ponerle título a una tarjeta. Si está guardada en un tablero, también se puede editar su texto.
+struct ItemEditorView: View {
+    let item: ClipItem
     let onCancel: () -> Void
-    let onSave: (_ title: String, _ text: String) -> Void
+    let onSave: (_ title: String, _ text: String?) -> Void
 
     @State private var title: String
     @State private var text: String
 
-    init(entry: BoardEntry, onCancel: @escaping () -> Void, onSave: @escaping (String, String) -> Void) {
-        self.entry = entry
+    init(item: ClipItem, onCancel: @escaping () -> Void, onSave: @escaping (String, String?) -> Void) {
+        self.item = item
         self.onCancel = onCancel
         self.onSave = onSave
-        _title = State(initialValue: entry.customTitle ?? "")
-        _text = State(initialValue: entry.content.plainText ?? "")
+        _title = State(initialValue: item.title ?? "")
+        _text = State(initialValue: item.content.plainText ?? "")
     }
 
-    private var isImage: Bool { entry.clip.kind == .image }
+    /// El texto solo se edita en tableros: en el historial el elemento es tal cual se copió.
+    private var canEditText: Bool { item.entry != nil && item.clip.kind != .image }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Editar elemento guardado")
+            Text(canEditText ? "Editar elemento guardado" : "Título de la tarjeta")
                 .font(.headline)
-            TextField("Título (p. ej. Token de staging)", text: $title)
+            TextField("Título (si lo dejas vacío dice “\(item.content.kind.displayName)”)", text: $title)
                 .textFieldStyle(.roundedBorder)
-            if !isImage {
+                .onSubmit { save() }
+            if canEditText {
                 TextEditor(text: $text)
                     .font(.system(.body, design: .monospaced))
                     .frame(minHeight: 160)
                     .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary) }
-                if let original = entry.clip.content.plainText, text != original {
+                if let original = item.clip.content.plainText, text != original {
                     Button("Volver al texto original") { text = original }
                         .buttonStyle(.link)
                         .font(.caption)
@@ -101,11 +103,15 @@ struct EntryEditorView: View {
                 Spacer()
                 Button("Cancelar", role: .cancel, action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button("Guardar") { onSave(title, text) }
+                Button("Guardar", action: save)
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(width: 460)
+        .frame(width: canEditText ? 460 : 380)
+    }
+
+    private func save() {
+        onSave(title, canEditText ? text : nil)
     }
 }

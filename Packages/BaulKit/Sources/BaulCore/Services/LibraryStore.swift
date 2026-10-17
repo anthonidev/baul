@@ -13,6 +13,8 @@ public protocol LibraryStore: Sendable {
     /// Formatos ricos guardados para pegar con formato.
     func richRepresentations(for clipID: ClipID) async throws -> [String: Data]
     func setLinkTitle(_ title: String, for clipID: ClipID) async throws
+    /// Título del usuario para un elemento; vacío o `nil` lo quita.
+    func setTitle(_ title: String?, for clipID: ClipID) async throws
 
     // MARK: Consultas
 
@@ -42,7 +44,8 @@ public protocol LibraryStore: Sendable {
     /// Guarda un elemento en un tablero. Si ya estaba, no lo duplica.
     @discardableResult
     func save(_ clipID: ClipID, to boardID: BoardID, at date: Date) async throws -> BoardEntryID
-    func updateEntry(_ id: BoardEntryID, title: String?, text: String?) async throws
+    /// Texto editado de un elemento guardado; vacío o `nil` vuelve al original.
+    func updateEntry(_ id: BoardEntryID, text: String?) async throws
     func removeEntry(_ id: BoardEntryID) async throws -> [String]
 
     // MARK: Apps excluidas

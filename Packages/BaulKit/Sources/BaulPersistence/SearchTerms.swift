@@ -40,7 +40,8 @@ struct SearchTerms: Equatable {
         return """
             (clip.text LIKE \(like) ESCAPE '\\' \
             OR clip.linkTitle LIKE \(like) ESCAPE '\\' \
-            OR clip.sourceAppName LIKE \(like) ESCAPE '\\')
+            OR clip.sourceAppName LIKE \(like) ESCAPE '\\' \
+            OR clip.title LIKE \(like) ESCAPE '\\')
             """
     }
 
@@ -50,8 +51,7 @@ struct SearchTerms: Equatable {
         }
         let like = Self.likePattern(term)
         return """
-            (boardEntry.customTitle LIKE \(like) ESCAPE '\\' \
-            OR boardEntry.customText LIKE \(like) ESCAPE '\\')
+            boardEntry.customText LIKE \(like) ESCAPE '\\'
             """
     }
 

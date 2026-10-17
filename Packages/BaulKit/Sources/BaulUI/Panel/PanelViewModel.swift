@@ -45,14 +45,15 @@ public final class PanelViewModel {
         didSet { if kindFilter != oldValue { queryDidChange() } }
     }
 
-    public var entryBeingEdited: BoardEntry?
+    /// Elemento cuyo título (y texto, si está en un tablero) se está editando.
+    public var itemBeingEdited: ClipItem?
     public var boardDraft: BoardDraft?
     public var boardPendingDeletion: Board?
     public var errorMessage: String?
 
     /// Cuando hay una hoja o diálogo abierto, el teclado no navega las tarjetas.
     public var isShowingModal: Bool {
-        entryBeingEdited != nil || boardDraft != nil || boardPendingDeletion != nil || errorMessage != nil
+        itemBeingEdited != nil || boardDraft != nil || boardPendingDeletion != nil || errorMessage != nil
     }
 
     public var selectedItem: ClipItem? {
@@ -294,19 +295,33 @@ public final class PanelViewModel {
         perform { try await self.store.reorderBoards(ids) }
     }
 
-    // MARK: - Editar elementos guardados
+    // MARK: - Título y texto
 
-    public func beginEditing(_ entry: BoardEntry) {
-        entryBeingEdited = entry
+    /// Ponerle título a cualquier tarjeta; en un tablero también se puede editar el texto.
+    public func beginEditing(_ item: ClipItem) {
+        itemBeingEdited = item
     }
 
-    public func commitEdit(title: String, text: String) {
-        guard let entry = entryBeingEdited else { return }
-        entryBeingEdited = nil
-        // Si el texto no cambió respecto al original, no se guarda como edición.
-        let original = entry.clip.content.plainText
-        let customText: String? = (text == original) ? nil : text
-        perform { try await self.store.updateEntry(entry.id, title: title, text: customText) }
+    /// `text` solo se usa en elementos guardados en un tablero.
+    public func commitEdit(title: String, text: String?) {
+        guard let item = itemBeingEdited else { return }
+        itemBeingEdited = nil
+        perform {
+            try await self.store.setTitle(title, for: item.clip.id)
+            if let entry = item.entry, let text {
+                // Si el texto no cambió respecto al original, no se guarda como edición.
+                let customText: String? = (text == entry.clip.content.plainText) ? nil : text
+                try await self.store.updateEntry(entry.id, text: customText)
+            }
+        }
+    }
+
+    /// Tableros donde está guardado un elemento, en el orden de las pestañas.
+    /// En la pestaña de un tablero, ese tablero va primero (define el color de la tarjeta).
+    public func boards(for item: ClipItem) -> [Board] {
+        let saved = item.clip.boardIDs.compactMap { id in boards.first { $0.id == id } }
+        guard let current = currentBoard, saved.contains(current) else { return saved }
+        return [current] + saved.filter { $0 != current }
     }
 
     // MARK: - Utilidades

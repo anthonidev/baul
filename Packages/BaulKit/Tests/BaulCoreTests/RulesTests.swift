@@ -89,7 +89,7 @@ import Testing
         )
         return BoardEntry(
             id: BoardEntryID(rawValue: 1), boardID: BoardID(rawValue: 1), clip: clip,
-            customTitle: nil, customText: customText, sortOrder: 0, addedAt: .now
+            customText: customText, sortOrder: 0, addedAt: .now
         )
     }
 

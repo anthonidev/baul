@@ -46,7 +46,7 @@ public final class PanelController {
         guard let panel, panel.isVisible else { return }
         // Cierra hojas abiertas (editor de tablero, etc.) para no dejarlas huérfanas.
         model.boardDraft = nil
-        model.entryBeingEdited = nil
+        model.itemBeingEdited = nil
         model.boardPendingDeletion = nil
         panel.orderOut(nil)
     }

@@ -1,9 +1,12 @@
 import BaulCore
 import SwiftUI
 
-/// Una tarjeta del panel: encabezado (tipo, hace cuánto, app), vista previa y detalle.
+/// Una tarjeta del panel: encabezado (título o tipo, hace cuánto, app), vista previa y detalle.
+/// Si está guardada en tableros, toma el color del primero (encabezado y borde) y muestra sus nombres.
 struct ClipCardView: View {
     let item: ClipItem
+    /// Tableros donde está guardada; el primero define el color.
+    let boards: [Board]
     /// Posición visible (1, 2, 3…) para ⌘1…⌘9; `nil` después de la 9.
     let position: Int?
     let isSelected: Bool
@@ -11,6 +14,11 @@ struct ClipCardView: View {
     let now: Date
 
     static let size = CGSize(width: 236, height: 248)
+
+    private var primaryBoard: Board? { boards.first }
+
+    /// Color de la tarjeta: el de su tablero o, si no está guardada, el de su tipo.
+    private var tint: Color { primaryBoard?.color.color ?? item.content.kind.tint }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,8 +31,17 @@ struct ClipCardView: View {
         .background(.background.opacity(0.92), in: .rect(cornerRadius: 14))
         .clipShape(.rect(cornerRadius: 14))
         .overlay {
+            // Borde del color del tablero: se distingue a simple vista lo que está guardado.
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 3 : 1)
+                .strokeBorder(primaryBoard.map { $0.color.color } ?? Color.primary.opacity(0.08), lineWidth: primaryBoard == nil ? 1 : 2.5)
+        }
+        .overlay {
+            // La selección va por fuera, para no confundirse con el borde del tablero.
+            if isSelected {
+                RoundedRectangle(cornerRadius: 17)
+                    .strokeBorder(Color.accentColor, lineWidth: 3)
+                    .padding(-5)
+            }
         }
         .shadow(color: .black.opacity(isSelected ? 0.25 : 0.1), radius: isSelected ? 8 : 3, y: 2)
         .accessibilityElement(children: .combine)
@@ -40,9 +57,10 @@ struct ClipCardView: View {
                 Text(item.title ?? item.content.kind.displayName)
                     .font(.headline)
                     .lineLimit(1)
-                Text(ClipFormatting.relativeTime(item.date, now: now))
+                Text(subtitle)
                     .font(.caption)
                     .opacity(0.85)
+                    .lineLimit(1)
             }
             Spacer(minLength: 0)
             appIcon
@@ -51,7 +69,13 @@ struct ClipCardView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(item.content.kind.tint.gradient)
+        .background(tint.gradient)
+    }
+
+    /// "hace 5 min", o "Texto · hace 5 min" si tiene título (para no perder el tipo).
+    private var subtitle: String {
+        let time = ClipFormatting.relativeTime(item.date, now: now)
+        return item.title == nil ? time : "\(item.content.kind.displayName) · \(time)"
     }
 
     @ViewBuilder
@@ -106,9 +130,11 @@ struct ClipCardView: View {
     // MARK: Pie
 
     private var footer: some View {
-        HStack {
+        HStack(spacing: 6) {
+            boardBadges
             Text(detail)
-            Spacer()
+                .lineLimit(1)
+            Spacer(minLength: 4)
             if let position {
                 Text("⌘\(position)")
                     .monospacedDigit()
@@ -116,8 +142,29 @@ struct ClipCardView: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        // Altura fija: con o sin etiquetas de tablero, el pie queda en el mismo lugar.
+        .frame(height: 20)
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
+    }
+
+    /// "● rxh" por cada tablero (hasta dos; el resto como "+n").
+    @ViewBuilder
+    private var boardBadges: some View {
+        ForEach(boards.prefix(2)) { board in
+            HStack(spacing: 3) {
+                Circle().fill(board.color.color).frame(width: 7, height: 7)
+                Text(board.name).lineLimit(1)
+            }
+            .fontWeight(.semibold)
+            .foregroundStyle(board.color.color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(board.color.color.opacity(0.15), in: .capsule)
+        }
+        if boards.count > 2 {
+            Text("+\(boards.count - 2)")
+        }
     }
 
     private var detail: String {
@@ -138,6 +185,7 @@ struct ClipCardView: View {
     private var accessibilityText: String {
         let position = position.map { "Posición \($0). " } ?? ""
         let body = item.content.plainText.map { ClipFormatting.preview(of: $0, maxLines: 2) } ?? "Imagen"
-        return "\(position)\(item.title ?? item.content.kind.displayName). \(body)"
+        let saved = boards.isEmpty ? "" : " Guardado en \(boards.map(\.name).formatted(.list(type: .and)))."
+        return "\(position)\(item.title ?? item.content.kind.displayName). \(body)\(saved)"
     }
 }

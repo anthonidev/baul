@@ -32,12 +32,12 @@ public struct BoardEntryID: RawRepresentable, Hashable, Sendable, Codable {
 }
 
 /// Un elemento guardado en un tablero. Apunta a un `Clip` y puede sobrescribir
-/// su texto y ponerle título sin tocar el original del historial.
+/// su texto sin tocar el original del historial. El título vive en el `Clip`,
+/// así se ve igual en el historial y en todos los tableros.
 public struct BoardEntry: Identifiable, Hashable, Sendable {
     public let id: BoardEntryID
     public let boardID: BoardID
     public let clip: Clip
-    public var customTitle: String?
     public var customText: String?
     public var sortOrder: Int
     public let addedAt: Date
@@ -46,7 +46,6 @@ public struct BoardEntry: Identifiable, Hashable, Sendable {
         id: BoardEntryID,
         boardID: BoardID,
         clip: Clip,
-        customTitle: String?,
         customText: String?,
         sortOrder: Int,
         addedAt: Date
@@ -54,7 +53,6 @@ public struct BoardEntry: Identifiable, Hashable, Sendable {
         self.id = id
         self.boardID = boardID
         self.clip = clip
-        self.customTitle = customTitle
         self.customText = customText
         self.sortOrder = sortOrder
         self.addedAt = addedAt

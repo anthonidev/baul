@@ -63,6 +63,14 @@ public final class SQLiteLibraryStore: LibraryStore {
         }
     }
 
+    public func setTitle(_ title: String?, for clipID: ClipID) async throws {
+        try await writer.write { db in
+            _ = try ClipRecord
+                .filter(ClipRecord.Columns.id == clipID.rawValue)
+                .updateAll(db, ClipRecord.Columns.title.set(to: title.nilIfBlank?.trimmingCharacters(in: .whitespacesAndNewlines)))
+        }
+    }
+
     public func setLinkTitle(_ title: String, for clipID: ClipID) async throws {
         try await writer.write { db in
             _ = try ClipRecord
@@ -121,20 +129,37 @@ public final class SQLiteLibraryStore: LibraryStore {
             ORDER BY clip.lastCopiedAt DESC
             LIMIT \(limit)
             """
-        return try ClipRecord.fetchAll(db, SQLRequest(literal: sql)).map { try $0.toDomain() }
+        let records = try ClipRecord.fetchAll(db, SQLRequest(literal: sql))
+        let memberships = try boardMemberships(db, clipIDs: records.compactMap(\.id))
+        return try records.map { try $0.toDomain(boardIDs: memberships[$0.id ?? -1] ?? []) }
     }
 
     private static func fetchEntries(
         _ db: Database, where condition: SQL, search: SearchTerms, kinds: SQL, limit: Int
     ) throws -> [BoardEntry] {
-        try BoardEntryRecord
+        let rows = try BoardEntryRecord
             .including(required: BoardEntryRecord.clip)
             .filter(literal: "\(condition) AND \(kinds) AND \(search.entryCondition())")
             .order(BoardEntryRecord.Columns.sortOrder.desc)
             .limit(limit)
             .asRequest(of: BoardEntryWithClip.self)
             .fetchAll(db)
-            .map { try $0.toDomain() }
+        let memberships = try boardMemberships(db, clipIDs: rows.map(\.boardEntry.clipId))
+        return try rows.map { try $0.toDomain(boardIDs: memberships[$0.boardEntry.clipId] ?? []) }
+    }
+
+    /// En qué tableros está cada elemento, en el orden de las pestañas.
+    private static func boardMemberships(_ db: Database, clipIDs: [Int64]) throws -> [Int64: [BoardID]] {
+        guard !clipIDs.isEmpty else { return [:] }
+        let rows = try Row.fetchAll(db, SQLRequest(literal: """
+            SELECT boardEntry.clipId, boardEntry.boardId FROM boardEntry
+            JOIN board ON board.id = boardEntry.boardId
+            WHERE boardEntry.clipId IN \(Set(clipIDs))
+            ORDER BY board.sortOrder
+            """))
+        return rows.reduce(into: [:]) { result, row in
+            result[row["clipId"], default: []].append(BoardID(rawValue: row["boardId"]))
+        }
     }
 
     private static func fetchBoards(_ db: Database) throws -> [Board] {
@@ -245,10 +270,9 @@ public final class SQLiteLibraryStore: LibraryStore {
         }
     }
 
-    public func updateEntry(_ id: BoardEntryID, title: String?, text: String?) async throws {
+    public func updateEntry(_ id: BoardEntryID, text: String?) async throws {
         try await writer.write { db in
             guard var record = try BoardEntryRecord.fetchOne(db, key: id.rawValue) else { throw PersistenceError.notFound }
-            record.customTitle = title.nilIfBlank
             record.customText = text.nilIfBlank
             try record.update(db)
         }

@@ -35,7 +35,7 @@ public enum ClipItem: Identifiable, Hashable, Sendable {
         entry?.content ?? clip.content
     }
 
-    public var title: String? { entry?.customTitle }
+    public var title: String? { clip.title }
 
     /// Fecha que se muestra en la tarjeta.
     public var date: Date {

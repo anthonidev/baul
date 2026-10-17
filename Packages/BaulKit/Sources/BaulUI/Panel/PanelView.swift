@@ -34,10 +34,10 @@ public struct PanelView: View {
                 }
             )
         }
-        .sheet(item: $model.entryBeingEdited) { entry in
-            EntryEditorView(
-                entry: entry,
-                onCancel: { model.entryBeingEdited = nil },
+        .sheet(item: $model.itemBeingEdited) { item in
+            ItemEditorView(
+                item: item,
+                onCancel: { model.itemBeingEdited = nil },
                 onSave: { title, text in model.commitEdit(title: title, text: text) }
             )
         }
@@ -184,6 +184,7 @@ public struct PanelView: View {
     private func card(for item: ClipItem, at index: Int, now: Date) -> some View {
         ClipCardView(
             item: item,
+            boards: model.boards(for: item),
             position: index < 9 ? index + 1 : nil,
             isSelected: index == model.selection,
             thumbnailURL: thumbnailURL(for: item),
@@ -216,11 +217,12 @@ public struct PanelView: View {
             if !model.boards.isEmpty { Divider() }
             Button("Nuevo tablero…") { model.beginCreatingBoard() }
         }
-        if let entry = item.entry {
-            Button("Editar…") { model.beginEditing(entry) }
+        if item.entry != nil {
+            Button("Editar título y texto…") { model.beginEditing(item) }
             Divider()
             Button("Quitar del tablero", role: .destructive) { model.delete(item) }
         } else {
+            Button(item.title == nil ? "Ponerle título…" : "Cambiar título…") { model.beginEditing(item) }
             Divider()
             Button("Eliminar", role: .destructive) { model.delete(item) }
         }

@@ -127,6 +127,39 @@ extension AppDatabase {
             }
         }
 
+        // v2: el título pasa de la entrada del tablero al elemento, para que se vea
+        // igual en el historial y en todos los tableros. Las migraciones publicadas no se editan.
+        migrator.registerMigration("v2-clip-title") { db in
+            try db.alter(table: "clip") { t in
+                t.add(column: "title", .text)
+            }
+            try db.execute(sql: """
+                UPDATE clip SET title = (
+                    SELECT customTitle FROM boardEntry
+                    WHERE boardEntry.clipId = clip.id AND customTitle IS NOT NULL
+                    ORDER BY boardEntry.id LIMIT 1
+                )
+                """)
+            // `boardEntry.customTitle` queda sin uso (borrar columnas en SQLite exige reconstruir
+            // la tabla y sus disparadores FTS); se vacía para que no haya dos fuentes de verdad.
+            try db.execute(sql: "UPDATE boardEntry SET customTitle = NULL")
+
+            // El índice de búsqueda se recrea para incluir el título.
+            try db.drop(table: "clipFTS")
+            try db.dropFTS5SynchronizationTriggers(forTable: "clipFTS")
+            try db.create(virtualTable: "clipFTS", using: FTS5()) { t in
+                t.synchronize(withTable: "clip")
+                t.tokenizer = Self.trigramTokenizer
+                t.column("text")
+                t.column("linkTitle")
+                t.column("sourceAppName")
+                t.column("title")
+            }
+        }
+
         return migrator
     }
+
+    /// Búsqueda por fragmentos ("stag" encuentra "Staging"), sin distinguir mayúsculas ni tildes.
+    static let trigramTokenizer = FTS5TokenizerDescriptor(components: ["trigram", "remove_diacritics", "1"])
 }

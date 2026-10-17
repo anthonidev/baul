@@ -143,3 +143,15 @@ Además de las pruebas automáticas, la app se ejecutó y se manejó con eventos
 3. Abrir el panel sobre una app en **pantalla completa** y con **dos monitores**.
 4. Activar **Iniciar al encender la Mac** y reiniciar. Debe hacerse con la app de `/Applications` (`make install`).
 5. Copiar una contraseña desde tu gestor real y confirmar que no aparece.
+
+---
+
+## Cambio: tarjetas con el color del tablero y títulos en todas (16-oct-2026)
+
+Pedido: que lo guardado en un tablero se distinga por su color, tanto en su pestaña como en Portapapeles, y poder ponerle título a cualquier tarjeta.
+
+- **Distintivo:** una tarjeta guardada toma el color de su tablero en el encabezado y el borde, y muestra una etiqueta "● rxh" en el pie (hasta dos; el resto como "+n"). En la pestaña de un tablero, ese tablero define el color. La selección pasó a un anillo azul **por fuera** de la tarjeta, para no confundirse con el borde del tablero.
+- **Títulos:** clic derecho → *Ponerle título…* en cualquier tarjeta (en un tablero: *Editar título y texto…*). Sin título se sigue viendo "Texto". Con título, el tipo pasa a la segunda línea ("Texto · hace 5 min"). El título también se busca.
+- **Migración v2 (`v2-clip-title`):** el título se movió de `boardEntry.customTitle` a `clip.title`, para que se vea igual en el historial y en todos los tableros. Copia los títulos existentes, vacía la columna vieja (borrar columnas en SQLite exige reconstruir la tabla y sus disparadores FTS) y recrea el índice de búsqueda con el título. Se probó con una base v1 con datos (`MigrationTests`) antes de aplicarla a la real.
+- **Respaldo:** antes de instalar se copió la base real a `~/Library/Application Support/Baul-respaldo-2026-10-16`. Se puede borrar cuando confirmes que todo está bien.
+- Pruebas: **73** en total.
