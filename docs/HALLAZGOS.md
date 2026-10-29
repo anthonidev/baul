@@ -155,3 +155,13 @@ Pedido: que lo guardado en un tablero se distinga por su color, tanto en su pest
 - **Migración v2 (`v2-clip-title`):** el título se movió de `boardEntry.customTitle` a `clip.title`, para que se vea igual en el historial y en todos los tableros. Copia los títulos existentes, vacía la columna vieja (borrar columnas en SQLite exige reconstruir la tabla y sus disparadores FTS) y recrea el índice de búsqueda con el título. Se probó con una base v1 con datos (`MigrationTests`) antes de aplicarla a la real.
 - **Respaldo:** antes de instalar se copió la base real a `~/Library/Application Support/Baul-respaldo-2026-10-16`. Se puede borrar cuando confirmes que todo está bien.
 - Pruebas: **73** en total.
+
+---
+
+## Cambio: pegar imágenes en terminales con ⌃V (29-oct-2026)
+
+Problema: en Ghostty, elegir una imagen del historial no pegaba nada. En las terminales ⌘V solo pega texto; los programas que corren adentro (Claude Code) leen la imagen del portapapeles cuando reciben **⌃V**. Warp sí funcionaba porque intercepta ⌘V.
+
+- **`PasteKeystroke`** (BaulCore): si lo que se pega es una imagen y la app activa es una terminal conocida (Ghostty, Terminal, iTerm2, kitty, WezTerm, Alacritty), se simula ⌃V; en cualquier otro caso, ⌘V como antes. Warp queda fuera a propósito.
+- El texto sigue usando ⌘V en todas partes: ⌃V en una shell normal es *quoted-insert* y no pegaría.
+- Pruebas en `PasteKeystrokeTests`.

@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import BaulCore
 import Carbon.HIToolbox
 import os
 
@@ -10,7 +11,7 @@ public enum PasteContent: Sendable {
     case image(png: Data)
 }
 
-/// Escribe en el portapapeles y simula ⌘V en la app activa.
+/// Escribe en el portapapeles y simula ⌘V (o ⌃V, ver `PasteKeystroke`) en la app activa.
 public final class PasteService {
     private let pasteboard: NSPasteboard
     private let logger = Logger(subsystem: "dev.tonis.baul", category: "paste")
@@ -43,22 +44,26 @@ public final class PasteService {
     }
 
     /// Simula ⌘V en la app que tiene el foco. Requiere el permiso de Accesibilidad.
+    /// Con `isImage`, en terminales envía ⌃V para que la imagen llegue al programa de adentro.
     ///
     /// La espera breve deja que el panel suelte el teclado antes del evento;
     /// sin ella, algunas apps reciben el ⌘V antes de recuperar el foco.
-    public func pasteIntoFrontmostApp(after delay: Duration = .milliseconds(60)) async {
+    public func pasteIntoFrontmostApp(isImage: Bool = false, after delay: Duration = .milliseconds(60)) async {
         guard AccessibilityPermission.isGranted else {
             logger.notice("Sin permiso de Accesibilidad: el contenido quedó copiado pero no se pegó")
             return
         }
         try? await Task.sleep(for: delay)
+        let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let keystroke = PasteKeystroke.forPasting(image: isImage, into: bundleID)
         let source = CGEventSource(stateID: .combinedSessionState)
         let keyCode = CGKeyCode(kVK_ANSI_V)
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
         let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
-        // Solo ⌘: así ⇧ (pegar como texto) o el ⌘ de ⌘1…9 no se cuelan en el atajo.
-        keyDown?.flags = .maskCommand
-        keyUp?.flags = .maskCommand
+        // Solo ⌘ (o ⌃): así ⇧ (pegar como texto) o el ⌘ de ⌘1…9 no se cuelan en el atajo.
+        let flags: CGEventFlags = keystroke == .controlV ? .maskControl : .maskCommand
+        keyDown?.flags = flags
+        keyUp?.flags = flags
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
     }

@@ -25,7 +25,8 @@ final class ClipboardController: PanelActions {
         panel.hide()
         guard await write(item, plainText: plainText) else { return }
         if AccessibilityPermission.isGranted {
-            await pasteService.pasteIntoFrontmostApp()
+            let isImage = if case .image = item.content { true } else { false }
+            await pasteService.pasteIntoFrontmostApp(isImage: isImage)
         } else {
             onMissingAccessibility?()
         }
